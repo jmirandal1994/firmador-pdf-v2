@@ -55,7 +55,7 @@ def insert_signature(pdf_data):
 
     for page in doc:
         x0 = 370
-        y0 = 750  # ← Altura fina, entre 735 y 760
+        y0 = 720  # ← Altura fina, entre 735 y 760
         sig_rect = fitz.Rect(x0, y0, x0 + sig_width, y0 + sig_height)
         page.insert_image(sig_rect, pixmap=signature, overlay=True)
 
