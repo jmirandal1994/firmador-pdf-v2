@@ -8,16 +8,28 @@ from datetime import datetime
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
-SIGNATURE_PATH = 'static/signature.png'  # Ruta de la imagen de firma
+
+# Diccionario de firmas disponibles
+FIRMAS = {
+    'priscilla': 'static/firma_priscilla.png',
+    'adriana': 'static/firma_adriana.png',
+    'yngrid': 'static/firma_yngrid.png'
+}
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', firmas=FIRMAS.keys())
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    doctora = request.form.get('doctora')  # Obtener opción de firma
+    signature_path = FIRMAS.get(doctora)
+
+    if not signature_path or not os.path.exists(signature_path):
+        return "Firma no válida o archivo de firma no encontrado.", 400
+
     files = request.files.getlist('pdfs')
     signed_pdfs = []
 
@@ -25,37 +37,35 @@ def upload():
         if file.filename.endswith('.pdf'):
             filename = secure_filename(file.filename)
             pdf_bytes = file.read()
-            signed_pdf = insert_signature(pdf_bytes)
-            signed_pdfs.append((f"signed_{filename}", signed_pdf))
+            signed_pdf = insert_signature(pdf_bytes, signature_path)
+            signed_filename = f"signed_{doctora}_{filename}"
+            signed_pdfs.append((signed_filename, signed_pdf))
 
     if len(signed_pdfs) == 1:
         filename, filedata = signed_pdfs[0]
         return send_file(filedata, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
-    # Si hay múltiples PDFs → generar archivo ZIP
+    # Múltiples PDFs → crear archivo ZIP
     zip_buffer = BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w') as zipf:
         for filename, filedata in signed_pdfs:
             zipf.writestr(filename, filedata.getvalue())
 
     zip_buffer.seek(0)
-
-    # Nombre del ZIP con fecha
     fecha = datetime.now().strftime('%d-%m-%Y')
-    zip_name = f"documentos_firmados_{fecha}.zip"
-
+    zip_name = f"documentos_firmados_{doctora}_{fecha}.zip"
     return send_file(zip_buffer, as_attachment=True, download_name=zip_name, mimetype='application/zip')
 
-def insert_signature(pdf_data):
+def insert_signature(pdf_data, signature_path):
     doc = fitz.open(stream=pdf_data, filetype="pdf")
-    signature = fitz.Pixmap(SIGNATURE_PATH)
+    signature = fitz.Pixmap(signature_path)
 
     sig_width = 110
     sig_height = 50
 
     for page in doc:
         x0 = 370
-        y0 = 700  # ← Altura fina, entre 735 y 760
+        y0 = 700
         sig_rect = fitz.Rect(x0, y0, x0 + sig_width, y0 + sig_height)
         page.insert_image(sig_rect, pixmap=signature, overlay=True)
 
@@ -63,7 +73,6 @@ def insert_signature(pdf_data):
     doc.save(output)
     output.seek(0)
     return output
-import os
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
