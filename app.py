@@ -14,7 +14,7 @@ FIRMAS = {
     'priscilla': 'static/firma_priscilla.png',
     'adriana': 'static/firma_adriana.png',
     'yngrid': 'static/firma_yngrid.png'
-}
+    'carolina': 'static/firma_carolina.png'}
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
